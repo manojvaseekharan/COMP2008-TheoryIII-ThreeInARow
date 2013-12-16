@@ -2,39 +2,196 @@ import java.util.ArrayList;
 
 
 public class Solver {
-	
+
 	private Board board;
 	public Solver(Board board)
 	{
 		this.board = board;
 	}
-	
-	ArrayList<Character[][]>boardState = new ArrayList<Character[][]>(); //stores array of pebbles
-	ArrayList<String>locationOfGuessing = new ArrayList<String>(); //stores location where guess started
-	ArrayList<Integer>typeOfGuess = new ArrayList<Integer>(); //stores type of guess
-	ArrayList<Integer>counterValue = new ArrayList<Integer>();//stores counter
-	int indexOfSafeStates = 0;
+
+	ArrayList<Integer> rowStored = new ArrayList<Integer>();
+	ArrayList<Integer> columnStored = new ArrayList<Integer>();
+	ArrayList<Character[][]> boardStored = new ArrayList<Character[][]>();
+
+	public boolean solvable = true; //indicate whether the board is solvable or not.
 	
 	public void startSolving()
 	{
 		mainAlgorithm();
-		//initial state before commencing!
 		startGuessing();
-		checkHorizontalConsecutiveViolation();
-		checkVerticalConsecutiveViolation();
-		if(checkNumberOfPebblesHorizontalViolation() == true)
+	}
+
+	private boolean checkRules()
+	{
+		if(checkHorizontalConsecutiveViolation() == true || checkVerticalConsecutiveViolation() == true || checkNumberOfPebblesHorizontalViolation() == true || checkNumberOfPebblesVerticalViolation() == true)
 		{
-			System.out.println("FUCK");
+			return false; //implies rules are not being followed
 		}
-		if(checkNumberOfPebblesVerticalViolation() == true)
+		else
 		{
-			System.out.println("YOU");
+			return true; //implies rules are being followed
+		}
+	}
+
+	private void startGuessing()
+	{
+		shortcutFill();
+		guessing(getEmptyPositionRow(), getEmptyPositionColumn(), 0, board.getArray());
+	}
+
+	private int getEmptyPositionColumn()
+	{
+		for (int i = 0; i < board.getSize(); i ++)
+		{
+			for(int j = 0; j < board.getSize(); j ++)
+			{
+				if (board.getEntry(i, j) == 'o')
+				{
+					return j;
+				}
+			}
+		}
+		return -1;
+	}
+
+	private int getEmptyPositionRow()
+	{
+		for (int i = 0; i < board.getSize(); i ++)
+		{
+			for(int j = 0; j < board.getSize(); j ++)
+			{
+				if (board.getEntry(i, j) == 'o')
+				{
+					return i;
+				}
+			}
+		}
+		return -1;
+	}
+
+	private void guessing(int row, int column, int attempt, Character[][] boardArray) throws ArrayIndexOutOfBoundsException
+	{
+		//this recursive method attempts to make guesses in positions which could not be filled with the shortcutFill() method.
+		if (row == -1)
+		{
+			return;
+		}
+		System.gc();
+		shortcutFill();
+		Character[][] temp = CopyArray.copyArray(board.getArray());
+		if (attempt == 0) //put black
+		{
+			rowStored.add(row);
+			columnStored.add(column);
+			boardStored.add(CopyArray.copyArray(board.getArray()));
+			board.setEntry('B', row, column);
+			if (checkRules() == true)
+			{
+				guessing(getEmptyPositionRow(), getEmptyPositionColumn(), 0, CopyArray.copyArray(board.getArray()));
+			}
+			else
+			{
+				board.setArray(temp);
+				guessing(row,column,1, temp);
+			}
+		}
+		else if (attempt == 1) //put white
+		{
+			board.setArray(boardArray);
+			board.setEntry('W', row, column);
+			if (checkRules() == true)
+			{
+				guessing(getEmptyPositionRow(), getEmptyPositionColumn(), 0, CopyArray.copyArray(board.getArray()));
+			}
+			else
+			{
+				board.setArray(boardArray);
+				guessing(rowStored.get(rowStored.size()-1),columnStored.get(columnStored.size()-1), 2, boardStored.get(boardStored.size()-1)); //go back and fix it!
+			}
+		}
+		else if (attempt == 2) //backtrack to the previous board in the ArrayList.
+		{
+			board.setArray(boardArray);
+			rowStored.remove(rowStored.size()-1);
+			columnStored.remove(columnStored.size()-1);
+			boardStored.remove(boardStored.size()-1);
+			if(board.getEntry(row, column) == 'B')
+			{
+				board.setEntry('W', row,column);
+				if (checkRules() == true)
+				{
+					guessing(getEmptyPositionRow(), getEmptyPositionColumn(), 0, board.getArray());
+				}
+				else
+				{
+					board.setEntry('o', rowStored.get(rowStored.size()-1), columnStored.get(columnStored.size()-1));
+					board.setArray(boardArray);
+					guessing(rowStored.get(rowStored.size()-1), columnStored.get(columnStored.size()-1),2, boardStored.get(boardStored.size()-1));
+				}
+			}
+			else
+			{
+				try {
+					guessing(rowStored.get(rowStored.size()-1), columnStored.get(columnStored.size()-1),2, CopyArray.copyArray(board.getArray()));
+				} catch (Exception e) {
+					System.out.println("UNSOLVABLE");
+					solvable = false;
+					return;
+				}
+			}
+		}
+	}
+
+
+	private void shortcutFill() //sequentially goes through the board and tries to fill up the board quicker using specific rules.
+	{	
+		for(int i = 0; i < board.getSize(); i ++)
+		{	
+			for (int j = 0; j <board.getSize(); j ++)
+			{
+				if (board.getEntry(i, j) == 'o')
+				{
+					Character[][] tempArray = CopyArray.copyArray(board.getArray());
+					board.setEntry('B', i, j);
+					mainAlgorithm();
+					if (checkRules() == true) //if Black works
+					{
+						board.setArray(CopyArray.copyArray(tempArray)); //try white
+						board.setEntry('W', i,j);
+						mainAlgorithm();
+						if (checkRules() == false) //if white does not work then that implies only Black works.
+						{
+							board.setArray(CopyArray.copyArray(tempArray));
+							board.setEntry('B',i,j);
+							mainAlgorithm();
+						}
+						else //implies black and white both work, don't risk adding anything in this position.
+						{
+							board.setArray(CopyArray.copyArray(tempArray));
+						}
+					}
+					else //implies black does not work, let's see if white works.
+					{
+						board.setArray(CopyArray.copyArray(tempArray));
+						board.setEntry('W', i,j);
+						mainAlgorithm();
+						if (checkRules() == false) //implies white does not work, don't risk adding anything in this position.
+						{
+							board.setArray(CopyArray.copyArray(tempArray));
+						}
+						else //implies white works, ONLY black works, keep as is.
+						{
+	
+						}
+					}
+				}
+	
+			}
 		}
 	}
 
 	private void mainAlgorithm() {
 		for (int i = 0; i < 100; i++) {
-			//look for two consecutive pebbles
 			twoConsecutiveHorizontalBlackPebbles();
 			twoConsecutiveHorizontalWhitePebbles();
 			twoConsecutiveVerticalBlackPebbles();
@@ -49,34 +206,7 @@ public class Solver {
 			countWhitesVertical();
 		}
 	}
-	
-	boolean test = false;
-	
-	public void startGuessing()
-	{
-		boolean marker = false;
-		for (int i = 0; i < board.getSize(); i ++)
-		{
-			for (int j = 0; j < board.getSize(); j ++)
-			{
-				if (board.getEntry(i, j) == 'o')
-				{
-					boardState.add(CopyArray.copyArray(board.getArray()));
-					locationOfGuessing.add(Integer.toString(i)+" "+Integer.toString(j));
-					typeOfGuess.add(1);
-					counterValue.add(0);
-					marker = true;
-					guessOneInARow(i,j);
-				}
-			}
-			if(marker == true)
-			{
-				marker = false;
-				break;
-			}
-		}
-	}
-	
+
 	private void twoConsecutiveHorizontalBlackPebbles()
 	{
 		for(int i = 0; i < board.getSize(); i ++)
@@ -86,7 +216,6 @@ public class Solver {
 				if(board.getEntry(i,j) == 'B' && board.getEntry(i,j+1) == 'B' && board.getEntry(i,j+2) == 'o')
 				{
 					board.setEntry('W',i,j+2);
-		
 				}
 			}
 		}
@@ -146,7 +275,7 @@ public class Solver {
 			}
 		}
 	}
-	
+
 	private void twoConsecutiveVerticalWhitePebbles()
 	{
 		for(int i = 0; i < board.getSize(); i ++)
@@ -167,7 +296,7 @@ public class Solver {
 			}
 		}
 	}
-	
+
 	private void checkForGapHorizontalBlackPebbles()
 	{
 		for(int i = 0; i < board.getSize(); i ++)
@@ -181,7 +310,7 @@ public class Solver {
 			}
 		}
 	}
-	
+
 	private void checkForGapHorizontalWhitePebbles()
 	{
 		for(int i = 0; i < board.getSize(); i ++)
@@ -209,7 +338,7 @@ public class Solver {
 			}
 		}
 	}
-	
+
 	private void checkForGapVerticalWhitePebbles()
 	{
 		for(int i = 0; i < board.getSize(); i ++)
@@ -223,7 +352,7 @@ public class Solver {
 			}
 		}
 	}
-	
+
 	private void countBlacksHorizontal()
 	{
 		int counter = 0;
@@ -251,10 +380,10 @@ public class Solver {
 			{
 				counter = 0;
 			}
-			
+
 		}
 	}
-	
+
 	private void countWhitesHorizontal()
 	{
 		int counter = 0;
@@ -282,7 +411,7 @@ public class Solver {
 			{
 				counter = 0;
 			}
-			
+
 		}
 	}
 
@@ -354,20 +483,19 @@ public class Solver {
 			{
 				if (board.getEntry(i,j) == 'B' && board.getEntry(i,j+1) == 'B' && board.getEntry(i,j+2) == 'B')
 				{
-					//System.out.println("Three consecutive Blacks found!");
+					
 					return true;
 				}
 				if (board.getEntry(i,j) == 'W' && board.getEntry(i,j+1) == 'W' && board.getEntry(i,j+2) == 'W')
 				{
-					//System.out.println("Three consecutive Whites found!");
+					
 					return true;
 				}
 			}
 		}
-		//System.out.println("No violations horizontally!");
 		return false;
 	}
-	
+
 	private boolean checkVerticalConsecutiveViolation()
 	{
 		for(int i = 0; i < board.getSize(); i ++)
@@ -376,20 +504,20 @@ public class Solver {
 			{
 				if (board.getEntry(j,i) == 'B' && board.getEntry(j+1,i) == 'B' && board.getEntry(j+2,i) == 'B')
 				{
-					//System.out.println("Three consecutive Blacks found!");
+				
 					return true;
 				}
 				if (board.getEntry(j,i) == 'W' && board.getEntry(j+1,i) == 'W' && board.getEntry(j+2,i) == 'W')
 				{
-					//System.out.println("Three consecutive Whites found!");
+					
 					return true;
 				}
 			}
 		}
-		//System.out.println("No violations vertically!");
+
 		return false;
 	}
-	
+
 	private boolean checkNumberOfPebblesHorizontalViolation()
 	{
 		int counter = 0;
@@ -403,15 +531,15 @@ public class Solver {
 				}
 				if (counter > board.getSize()/2)
 				{
-					//System.out.println("Too many horizontal blacks");
+					
 					return true;
 				}
 			}
 			counter = 0;
-			
+
 		}
 		counter = 0;
-		
+
 		for(int i = 0; i < board.getSize(); i ++)
 		{
 			for (int j = 0; j < board.getSize(); j ++ )
@@ -422,17 +550,16 @@ public class Solver {
 				}
 				if (counter > board.getSize()/2)
 				{
-					//System.out.println("Too many horizontal whites");
+					
 					return true;
 				}
 			}
 			counter = 0;
-			
 		}
 		counter = 0;
 		return false;
 	}
-	
+
 	private boolean checkNumberOfPebblesVerticalViolation()
 	{
 		int counter = 0;
@@ -446,15 +573,14 @@ public class Solver {
 				}
 				if (counter > board.getSize()/2)
 				{
-					//System.out.println("Too many vertical blacks");
+					
 					return true;
 				}
 			}
 			counter = 0;
-			
 		}
 		counter = 0;
-		
+
 		for(int i = 0; i < board.getSize(); i ++)
 		{
 			for (int j = 0; j < board.getSize(); j ++ )
@@ -465,134 +591,18 @@ public class Solver {
 				}
 				if (counter > board.getSize()/2)
 				{
-					//System.out.println("Too many vertical whites");
+					
 					return true;
 				}
 			}
 			counter = 0;
-			
 		}
 		counter = 0;
 		return false;
 	}
-	
-	int counterGuessTwo = 0;
-	private void guessTwoInARow(int row, int column)
-	{
-		//System.out.println("Guessing 2");
-		if (counterGuessTwo > 3)
-		{
-			//System.out.println("can't anymore");
-			//counterGuessTwo = 0;
-			goBackToPreviousBoard(2);
-		}
-		else
-		{
-		//store state of the board
-		Character temp[][] = CopyArray.copyArray(board.getArray());
-		//access array of values to try
-		String pebbles = new String();
-		pebbles = ArraysOfGuesses.two[counterGuessTwo];
-		//System.out.println("Currently guessing " + pebbles);
-		char firstPebble = pebbles.charAt(0);
-		char secondPebble = pebbles.charAt(2);
-		board.setEntry(firstPebble, row, column);
-		board.setEntry(secondPebble, row, column+1);
-		mainAlgorithm();
-		if(checkHorizontalConsecutiveViolation() == true || checkVerticalConsecutiveViolation() == true || checkNumberOfPebblesHorizontalViolation() == true || checkNumberOfPebblesVerticalViolation() == true)
-		{
-			board.setArray(temp);
-			counterGuessTwo++;
-			//System.out.println("cycle");
-			guessTwoInARow(row,column);
-		}
-		else
-		{
-			//System.out.println("YES");
-			boardState.add(CopyArray.copyArray(board.getArray()));
-			locationOfGuessing.add(Integer.toString(row)+" "+Integer.toString(column));
-			typeOfGuess.add(2);
-			counterValue.add(counterGuessTwo);
-			counterGuessTwo = 0;
-			indexOfSafeStates++;
-			startGuessing();
-		}
-	}
-		
-	}
 
-	int counterGuessOne = 0;
-	private void guessOneInARow(int row, int column)
-	{
-		//System.out.println("Guessing 1");
-		if (counterGuessOne > 1)
-		{
-			//System.out.println("can't anymore");
-			counterGuessOne = 0;
-			goBackToPreviousBoard(1);
-		}
-		else
-		{
-			//System.out.println("BOARD BEFORE WE DO SHIT: ");
-			//board.print();
-			Character[][] temp = CopyArray.copyArray(board.getArray());
-			Character input = ArraysOfGuesses.one[counterGuessOne];
-			//System.out.println("Currently guessing " + input);
-			board.setEntry(input, row, column);
-			mainAlgorithm();
-			if (checkHorizontalConsecutiveViolation() == true || checkVerticalConsecutiveViolation() == true || checkNumberOfPebblesHorizontalViolation() == true || checkNumberOfPebblesVerticalViolation() == true)
-			{
-				//System.out.println("Cycle");
-				board.setArray(temp);
-				counterGuessOne++;
-				guessOneInARow(row,column);
-			}
-			else
-			{
-				//System.out.println("YESSSS");
-				Character[][] goodArray = new Character[board.getSize()][board.getSize()];
-				goodArray = CopyArray.copyArray(board.getArray());
-				boardState.add(goodArray);
-				locationOfGuessing.add(Integer.toString(row)+" "+Integer.toString(column));
-				typeOfGuess.add(1);
-				counterValue.add(counterGuessOne);
-				indexOfSafeStates+= 1; 	//previous state is definitely safe.
-				counterGuessOne = 0;
-				startGuessing();
-			}
-		}
-	}
-	
-	int counterGuessThree = 0;
-	private void guessThreeInARow(int row, int column)
-	{
-		
-	}
 
-	private void goBackToPreviousBoard(int typeJustMade)
-	{
-	
-		//System.out.println("TIME TO GO BACK!");
-		//check type of guess of last safe state, if same, then go back again.
-		switch(typeOfGuess.get(indexOfSafeStates-1))
-		{
-			case 1:
-			{
-				Character[][] tempArray = new Character [board.getSize()][board.getSize()];
-				tempArray = boardState.get(indexOfSafeStates-1);
-				board.setArray(tempArray);
-				counterGuessOne = counterValue.get(indexOfSafeStates-1)+1;
-				
-				String row = locationOfGuessing.get(indexOfSafeStates-1).substring(0, locationOfGuessing.get(indexOfSafeStates-1).indexOf(" "));
-				String column = locationOfGuessing.get(indexOfSafeStates-1).substring(locationOfGuessing.get(indexOfSafeStates-1).indexOf(" ")+1,locationOfGuessing.get(indexOfSafeStates-1).length());
-				indexOfSafeStates --;
-				//System.out.println(row);
-				//System.out.println(column);
-				guessOneInARow(Integer.valueOf(row), Integer.valueOf(column));
-				break;
-			}
-		}
-	}
-	
+
+
 
 }

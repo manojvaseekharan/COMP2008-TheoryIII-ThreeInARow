@@ -3,15 +3,12 @@ public class Board {
 	
 	private Character[][] array;
 	private int size;
-	private int blackPebbles[];
-	private int whitePebbles[];
+
 	
-	public Board(int size, int[] blackPebbles, int[] whitePebbles)
+	public Board(int size)
 	{
 		this.array = new Character[size][size];
 		this.size = size;
-		this.blackPebbles = blackPebbles;
-		this.whitePebbles = whitePebbles;
 		CopyArray.size = size;
 	}
 	
