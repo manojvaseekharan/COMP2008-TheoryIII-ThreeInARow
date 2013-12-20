@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.util.Arrays;
 
 
 public class Logic {
@@ -35,7 +36,20 @@ public class Logic {
 
 	private void startGuessing()
 	{
-		shortcutFill();
+		Character[][] tempBoard = CopyArray.copyArray(board.getArray());
+		while(getEmptyPositionRow() != -1)
+		{
+			shortcutFill();
+			if (Arrays.deepEquals(tempBoard, CopyArray.copyArray(board.getArray())))
+			{
+				break;
+			}
+			else
+			{
+				tempBoard = CopyArray.copyArray(board.getArray());
+			}
+		}
+		
 		guessing(getEmptyPositionRow(), getEmptyPositionColumn(), 0, board.getArray());
 	}
 
@@ -191,7 +205,9 @@ public class Logic {
 	}
 
 	private void mainAlgorithm() {
-		for (int i = 0; i < 100; i++) {
+		Character[][] tempArray = CopyArray.copyArray(board.getArray());
+		while(getEmptyPositionRow() != -1)
+		{
 			twoConsecutiveHorizontalBlackPebbles();
 			twoConsecutiveHorizontalWhitePebbles();
 			twoConsecutiveVerticalBlackPebbles();
@@ -204,6 +220,14 @@ public class Logic {
 			countWhitesHorizontal();
 			countBlacksVertical();
 			countWhitesVertical();
+			if (Arrays.deepEquals(tempArray, CopyArray.copyArray(board.getArray())))
+			{
+				break;
+			}
+			else
+			{
+				tempArray = CopyArray.copyArray(board.getArray());
+			}
 		}
 	}
 
